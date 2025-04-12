@@ -41,7 +41,7 @@ available_models = {
 }
 
 # Initialize model and data
-@st.cache_resource
+@st.cache_resource(experimental_allow_widgets=True, ttl=1)
 def initialize_models():
     models = {}
     sample_data = None
@@ -75,7 +75,14 @@ def initialize_models():
             models['gb'] = train_model(sample_data, model_type='gb', model_path='gb_model.joblib')
             
         with st.spinner("Training XGBoost model..."):
-            models['xgb'] = train_model(sample_data, model_type='xgb', model_path='xgb_model.joblib')
+            try:
+                st.write("Starting XGBoost training...")
+                models['xgb'] = train_model(sample_data, model_type='xgb', model_path='xgb_model.joblib')
+                st.write("XGBoost training completed successfully!")
+            except Exception as xgb_error:
+                st.error(f"Error training XGBoost model: {str(xgb_error)}")
+                import traceback
+                st.code(traceback.format_exc())
         
         with st.spinner("Training Logistic Regression model..."):
             models['lr'] = train_model(sample_data, model_type='lr', model_path='lr_model.joblib')
