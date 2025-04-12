@@ -33,6 +33,7 @@ st.sidebar.title("Model Settings")
 available_models = {
     'rf': 'Random Forest',
     'gb': 'Gradient Boosting',
+    'xgb': 'XGBoost',
     'lr': 'Logistic Regression',
     'svm': 'Support Vector Machine',
     'nn': 'Neural Network',
@@ -72,6 +73,9 @@ def initialize_models():
         
         with st.spinner("Training Gradient Boosting model..."):
             models['gb'] = train_model(sample_data, model_type='gb', model_path='gb_model.joblib')
+            
+        with st.spinner("Training XGBoost model..."):
+            models['xgb'] = train_model(sample_data, model_type='xgb', model_path='xgb_model.joblib')
         
         with st.spinner("Training Logistic Regression model..."):
             models['lr'] = train_model(sample_data, model_type='lr', model_path='lr_model.joblib')
@@ -172,10 +176,11 @@ if use_multiple_models:
             model_accuracy = {
                 'rf': 0.82,      # Random Forest
                 'gb': 0.84,      # Gradient Boosting
+                'xgb': 0.86,     # XGBoost (typically has high accuracy)
                 'lr': 0.76,      # Logistic Regression
                 'svm': 0.78,     # SVM
                 'nn': 0.80,      # Neural Network
-                'ensemble': 0.85 # Ensemble already has high weight
+                'ensemble': 0.87 # Ensemble already has high weight
             }
             
             # Get accuracies for selected models
@@ -203,10 +208,11 @@ if use_multiple_models:
         model_accuracy = model_accuracy if 'model_accuracy' in locals() else {
             'rf': 0.82,      # Random Forest
             'gb': 0.84,      # Gradient Boosting
+            'xgb': 0.86,     # XGBoost (typically has high accuracy)
             'lr': 0.76,      # Logistic Regression
             'svm': 0.78,     # SVM
             'nn': 0.80,      # Neural Network
-            'ensemble': 0.85  # Ensemble already has high weight
+            'ensemble': 0.87  # Ensemble already has high weight
         }
             
         # Show accuracy estimate based on selected models

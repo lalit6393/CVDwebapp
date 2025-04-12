@@ -7,6 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from xgboost import XGBClassifier
 import joblib
 import os
 
@@ -173,6 +174,17 @@ def train_model(data, model_type='ensemble', model_path=None):
     elif model_type == 'gb':
         # Gradient Boosting Classifier
         model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42)
+    elif model_type == 'xgb':
+        # XGBoost Classifier
+        model = XGBClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=5,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective='binary:logistic',
+            random_state=42
+        )
     elif model_type == 'lr':
         # Logistic Regression
         model = LogisticRegression(C=1.0, max_iter=1000, random_state=42)
@@ -186,10 +198,11 @@ def train_model(data, model_type='ensemble', model_path=None):
         # Voting Ensemble of multiple models
         rf = RandomForestClassifier(n_estimators=100, random_state=42)
         gb = GradientBoostingClassifier(n_estimators=100, random_state=42)
+        xgb = XGBClassifier(n_estimators=100, random_state=42)
         lr = LogisticRegression(C=1.0, max_iter=1000, random_state=42)
         
         model = VotingClassifier(
-            estimators=[('rf', rf), ('gb', gb), ('lr', lr)],
+            estimators=[('rf', rf), ('gb', gb), ('xgb', xgb), ('lr', lr)],
             voting='soft'
         )
     else:
@@ -266,7 +279,7 @@ def load_all_models():
     models = {}
     
     # Try to load each type of model
-    model_types = ['rf', 'gb', 'lr', 'svm', 'nn', 'ensemble']
+    model_types = ['rf', 'gb', 'xgb', 'lr', 'svm', 'nn', 'ensemble']
     
     for model_type in model_types:
         model_path = f"{model_type}_model.joblib"
