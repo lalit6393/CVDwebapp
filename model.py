@@ -145,18 +145,21 @@ def preprocess_data(data, is_training=False, target_col='cardio'):
     else:
         return X
 
-def train_model(data, model_type='ensemble', model_path='model.joblib'):
+def train_model(data, model_type='ensemble', model_path=None):
     """
     Train a machine learning model on the dataset.
     
     Parameters:
     data (DataFrame): The input data
     model_type (str): Type of model to train ('rf', 'gb', 'lr', 'svm', 'nn', or 'ensemble')
-    model_path (str): Path to save the trained model
+    model_path (str, optional): Path to save the trained model. If None, uses {model_type}_model.joblib
     
     Returns:
     model: The trained model
     """
+    # Set default path based on model type if not provided
+    if model_path is None:
+        model_path = f"{model_type}_model.joblib"
     # Preprocess the data
     X, y = preprocess_data(data, is_training=True)
     
@@ -214,37 +217,44 @@ def train_model(data, model_type='ensemble', model_path='model.joblib'):
     print(f"F1 Score: {f1:.4f}")
     print(f"ROC AUC: {roc_auc:.4f}")
     
-    # Save the model with model type in filename
-    model_filename = f"{model_type}_{model_path}" if model_path == 'model.joblib' else model_path
-    joblib.dump(model, model_filename)
+    # Save the model
+    joblib.dump(model, model_path)
     
     return model
 
-def load_model(model_type='ensemble', model_path='model.joblib'):
+def load_model(model_type='ensemble', model_path=None):
     """
     Load a trained model from disk.
     
     Parameters:
     model_type (str): Type of model to load ('rf', 'gb', 'lr', 'svm', 'nn', or 'ensemble')
-    model_path (str): Path to the model file
+    model_path (str, optional): Path to the model file. If None, uses {model_type}_model.joblib
     
     Returns:
     model: The loaded model
     """
-    # Check if a specific model type is provided and use the corresponding file
-    if model_type != 'default' and model_path == 'model.joblib':
-        specific_model_path = f"{model_type}_{model_path}"
-        if os.path.exists(specific_model_path):
-            model = joblib.load(specific_model_path)
-            return model
+    # Set default path based on model type if not provided
+    if model_path is None:
+        model_path = f"{model_type}_model.joblib"
     
-    # Check if the default model exists
+    # Try to load the model from the specified path
     if os.path.exists(model_path):
-        model = joblib.load(model_path)
-        return model
+        try:
+            model = joblib.load(model_path)
+            return model
+        except Exception as e:
+            print(f"Error loading model from {model_path}: {e}")
     
-    # If we get here, the requested model doesn't exist
-    raise FileNotFoundError(f"Model file not found for type {model_type}")
+    # Try loading from the default model path as fallback
+    if model_type != 'default' and os.path.exists('model.joblib'):
+        try:
+            print(f"Model {model_path} not found, falling back to model.joblib")
+            return joblib.load('model.joblib')
+        except Exception as e:
+            print(f"Error loading default model: {e}")
+    
+    # If we get here, no valid model could be loaded
+    raise FileNotFoundError(f"No valid model found for type {model_type} at path {model_path}")
 
 def load_all_models():
     """

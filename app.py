@@ -50,6 +50,10 @@ def initialize_models():
         from model import load_all_models
         models = load_all_models()
         
+        # Remove 'default' model if present to avoid duplicates
+        if 'default' in models:
+            del models['default']
+        
         # If no models were loaded, train them
         if not models:
             raise FileNotFoundError("No models found")
@@ -57,6 +61,7 @@ def initialize_models():
     except Exception as e:
         st.warning(f"No pre-trained models found. Training new models... ({str(e)})")
         if sample_data is None:
+            from utils import load_sample_data
             sample_data = load_sample_data()
         
         # Train different types of models
@@ -79,6 +84,9 @@ def initialize_models():
         
         with st.spinner("Training Ensemble model..."):
             models['ensemble'] = train_model(sample_data, model_type='ensemble', model_path='ensemble_model.joblib')
+        
+        # Save an additional copy as the default model for backward compatibility
+        joblib.dump(models['ensemble'], 'model.joblib')
     
     return models
 
