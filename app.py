@@ -245,18 +245,61 @@ elif page == "Prediction":
             # Make prediction
             try:
                 X_processed = preprocess_data(user_df)
-                prediction, probability = make_prediction(model, X_processed)
                 
-                # Display prediction
-                st.subheader("Prediction Result")
+                # Use ensemble prediction if multiple models are selected
+                if st.session_state.selected_models and len(st.session_state.selected_models) > 1:
+                    from model import ensemble_predict
+                    prediction, probability = ensemble_predict(
+                        st.session_state.selected_models, 
+                        X_processed, 
+                        weights=st.session_state.model_weights
+                    )
+                    
+                    # Create a model comparison section
+                    st.subheader("Model Comparison")
+                    
+                    # Make individual predictions with each model for comparison
+                    model_results = {}
+                    for model_type, model_instance in st.session_state.selected_models.items():
+                        pred, prob = make_prediction(model_instance, X_processed)
+                        model_results[model_type] = {
+                            'prediction': pred[0],
+                            'confidence': prob[0][pred[0]]
+                        }
+                    
+                    # Display individual model predictions
+                    model_df = pd.DataFrame({
+                        'Model': [available_models.get(k, k) for k in model_results.keys()],
+                        'Prediction': ['High Risk' if model_results[k]['prediction'] == 1 else 'Low Risk' for k in model_results.keys()],
+                        'Confidence': [f"{model_results[k]['confidence']:.1%}" for k in model_results.keys()],
+                        'Weight': [f"{st.session_state.model_weights.get(k, 0):.2f}" for k in model_results.keys()]
+                    })
+                    st.table(model_df)
+                    
+                    # Display ensemble prediction
+                    st.subheader("Ensemble Prediction Result")
+                    
+                else:
+                    # Use single model prediction
+                    prediction, probability = make_prediction(model, X_processed)
+                    st.subheader("Prediction Result")
                 
+                # Display prediction result
                 if prediction[0] == 1:
                     st.error(f"⚠️ High risk of cardiovascular disease detected! (Confidence: {probability[0][1]:.1%})")
                 else:
                     st.success(f"✅ Low risk of cardiovascular disease. (Confidence: {probability[0][0]:.1%})")
                 
                 # Feature importance
-                feature_importance = calculate_feature_importance(model, X_processed)
+                if st.session_state.selected_models and len(st.session_state.selected_models) > 1:
+                    # For ensemble, use the model with highest weight for feature importance
+                    highest_weight_model_type = max(st.session_state.model_weights.items(), key=lambda x: x[1])[0]
+                    highest_weight_model = st.session_state.selected_models[highest_weight_model_type]
+                    st.info(f"Feature importance based on {available_models.get(highest_weight_model_type, highest_weight_model_type)} model")
+                    feature_importance = calculate_feature_importance(highest_weight_model, X_processed)
+                else:
+                    feature_importance = calculate_feature_importance(model, X_processed)
+                
                 fig = plot_feature_importance(feature_importance)
                 st.subheader("Factors Influencing Prediction")
                 st.pyplot(fig)
@@ -298,7 +341,50 @@ elif page == "Prediction":
                 else:
                     # Process the data
                     X_processed = preprocess_data(data)
-                    predictions, probabilities = make_prediction(model, X_processed, return_all_probs=True)
+                    
+                    # Use ensemble prediction if multiple models are selected
+                    if st.session_state.selected_models and len(st.session_state.selected_models) > 1:
+                        from model import ensemble_predict
+                        predictions, probabilities = ensemble_predict(
+                            st.session_state.selected_models, 
+                            X_processed, 
+                            weights=st.session_state.model_weights
+                        )
+                        
+                        # Create columns for individual model predictions
+                        st.subheader("Model Predictions Comparison")
+                        model_predictions = {}
+                        
+                        for model_type, model_instance in st.session_state.selected_models.items():
+                            model_pred, model_prob = make_prediction(model_instance, X_processed, return_all_probs=True)
+                            model_predictions[model_type] = {
+                                'prediction': model_pred,
+                                'probability': [p[1] for p in model_prob]  # Probability of positive class
+                            }
+                        
+                        # Show model comparison metrics
+                        st.write("Model agreement analysis:")
+                        agreement_metrics = {}
+                        
+                        # Calculate agreement between models
+                        for model_type, results in model_predictions.items():
+                            agreement_metrics[model_type] = {
+                                'high_risk_percent': np.mean(results['prediction']) * 100,
+                                'avg_confidence': np.mean(results['probability']) * 100
+                            }
+                        
+                        # Create metrics dataframe
+                        metrics_df = pd.DataFrame({
+                            'Model': [available_models.get(k, k) for k in agreement_metrics.keys()],
+                            'High Risk %': [f"{agreement_metrics[k]['high_risk_percent']:.1f}%" for k in agreement_metrics.keys()],
+                            'Avg Confidence': [f"{agreement_metrics[k]['avg_confidence']:.1f}%" for k in agreement_metrics.keys()],
+                            'Weight': [f"{st.session_state.model_weights.get(k, 0):.2f}" for k in agreement_metrics.keys()]
+                        })
+                        st.table(metrics_df)
+                        
+                    else:
+                        # Use single model prediction
+                        predictions, probabilities = make_prediction(model, X_processed, return_all_probs=True)
                     
                     # Add predictions to the dataframe
                     data['prediction'] = predictions
@@ -399,9 +485,53 @@ elif page == "Data Analysis":
     
     # Feature importance
     st.subheader("Feature Importance")
-    feature_importance = calculate_feature_importance(model, preprocess_data(sample_data.drop('cardio', axis=1)))
-    fig = plot_feature_importance(feature_importance)
-    st.pyplot(fig)
+    
+    # Add model selection for feature importance comparison
+    available_model_options_analysis = {k: v for k, v in available_models.items() if k in models}
+    
+    if len(available_model_options_analysis) > 1:
+        selected_models_analysis = st.multiselect(
+            "Compare feature importance across models:",
+            options=list(available_model_options_analysis.keys()),
+            default=[st.session_state.active_model_type] if st.session_state.active_model_type in available_model_options_analysis else [],
+            format_func=lambda x: available_model_options_analysis[x]
+        )
+        
+        if selected_models_analysis:
+            # Prepare the plot area
+            if len(selected_models_analysis) > 1:
+                num_cols = min(2, len(selected_models_analysis))
+                num_rows = (len(selected_models_analysis) + 1) // 2
+                fig_height = 5 * num_rows
+                
+                # Create multi-model feature importance plots
+                processed_data = preprocess_data(sample_data.drop('cardio', axis=1))
+                
+                for i, model_type in enumerate(selected_models_analysis):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        model_instance = models[model_type]
+                        feature_importance = calculate_feature_importance(model_instance, processed_data)
+                        fig = plot_feature_importance(feature_importance)
+                        st.write(f"### {available_models.get(model_type, model_type)} Model")
+                        st.pyplot(fig)
+            else:
+                # Single model selected from dropdown
+                model_type = selected_models_analysis[0]
+                model_instance = models[model_type]
+                feature_importance = calculate_feature_importance(model_instance, preprocess_data(sample_data.drop('cardio', axis=1)))
+                fig = plot_feature_importance(feature_importance)
+                st.pyplot(fig)
+        else:
+            # Default to active model if none selected
+            feature_importance = calculate_feature_importance(model, preprocess_data(sample_data.drop('cardio', axis=1)))
+            fig = plot_feature_importance(feature_importance)
+            st.pyplot(fig)
+    else:
+        # Only one model available
+        feature_importance = calculate_feature_importance(model, preprocess_data(sample_data.drop('cardio', axis=1)))
+        fig = plot_feature_importance(feature_importance)
+        st.pyplot(fig)
 
 elif page == "About CVD":
     st.header("About Cardiovascular Disease")
