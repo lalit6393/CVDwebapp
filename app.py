@@ -70,6 +70,12 @@ def initialize_models():
         
         with st.spinner("Training Logistic Regression model..."):
             models['lr'] = train_model(sample_data, model_type='lr')
+            
+        with st.spinner("Training Support Vector Machine model..."):
+            models['svm'] = train_model(sample_data, model_type='svm')
+            
+        with st.spinner("Training Neural Network model..."):
+            models['nn'] = train_model(sample_data, model_type='nn')
         
         with st.spinner("Training Ensemble model..."):
             models['ensemble'] = train_model(sample_data, model_type='ensemble')
