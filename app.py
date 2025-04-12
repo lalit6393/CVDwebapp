@@ -28,21 +28,126 @@ Simply input your health parameters or upload your data to get a prediction.
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Home", "Prediction", "Data Analysis", "About CVD"])
 
+# Model selection in sidebar
+st.sidebar.title("Model Settings")
+available_models = {
+    'rf': 'Random Forest',
+    'gb': 'Gradient Boosting',
+    'lr': 'Logistic Regression',
+    'svm': 'Support Vector Machine',
+    'nn': 'Neural Network',
+    'ensemble': 'Ensemble (Multiple Models)'
+}
+
 # Initialize model and data
 @st.cache_resource
-def initialize_model():
+def initialize_models():
+    models = {}
+    sample_data = None
+    
     try:
-        model = load_model()
-        return model
-    except:
-        # Train model if not found
-        st.warning("No pre-trained model found. Training a new model...")
-        sample_data = load_sample_data()
-        model = train_model(sample_data)
-        return model
+        # Try to load all available models
+        from model import load_all_models
+        models = load_all_models()
+        
+        # If no models were loaded, train them
+        if not models:
+            raise FileNotFoundError("No models found")
+            
+    except Exception as e:
+        st.warning(f"No pre-trained models found. Training new models... ({str(e)})")
+        if sample_data is None:
+            sample_data = load_sample_data()
+        
+        # Train different types of models
+        from model import train_model
+        
+        with st.spinner("Training Random Forest model..."):
+            models['rf'] = train_model(sample_data, model_type='rf')
+        
+        with st.spinner("Training Gradient Boosting model..."):
+            models['gb'] = train_model(sample_data, model_type='gb')
+        
+        with st.spinner("Training Logistic Regression model..."):
+            models['lr'] = train_model(sample_data, model_type='lr')
+        
+        with st.spinner("Training Ensemble model..."):
+            models['ensemble'] = train_model(sample_data, model_type='ensemble')
+    
+    return models
 
-# Load or train the model
-model = initialize_model()
+# Load or train the models
+models = initialize_models()
+
+# Set the default model to use (can be changed by the user)
+if 'active_model_type' not in st.session_state:
+    # Default to ensemble if available, otherwise use the first available model
+    if 'ensemble' in models:
+        st.session_state.active_model_type = 'ensemble'
+    else:
+        st.session_state.active_model_type = next(iter(models))
+
+# Available models dropdown in sidebar
+available_model_options = {k: v for k, v in available_models.items() if k in models}
+if available_model_options:
+    selected_model = st.sidebar.selectbox(
+        "Select prediction model:",
+        options=list(available_model_options.keys()),
+        format_func=lambda x: available_model_options[x],
+        index=list(available_model_options.keys()).index(st.session_state.active_model_type) 
+            if st.session_state.active_model_type in available_model_options else 0
+    )
+    
+    # Update the active model type when selection changes
+    if selected_model != st.session_state.active_model_type:
+        st.session_state.active_model_type = selected_model
+        st.rerun()
+
+# Get the active model
+model = models.get(st.session_state.active_model_type)
+
+# Option to use ensemble prediction with multiple models
+use_multiple_models = st.sidebar.checkbox("Use multiple models for prediction", value=False)
+if use_multiple_models:
+    # Select which models to include in ensemble
+    selected_models = st.sidebar.multiselect(
+        "Select models to include in ensemble:",
+        options=list(models.keys()),
+        default=[st.session_state.active_model_type] if st.session_state.active_model_type in models else []
+    )
+    
+    # Set weights for each model
+    if selected_models:
+        st.sidebar.write("Set weights for each model:")
+        model_weights = {}
+        for model_key in selected_models:
+            weight = st.sidebar.slider(
+                f"{available_models.get(model_key, model_key)} weight:",
+                min_value=0.0,
+                max_value=1.0,
+                value=1.0/len(selected_models),
+                step=0.05,
+                key=f"weight_{model_key}"
+            )
+            model_weights[model_key] = weight
+        
+        # Normalize weights
+        total_weight = sum(model_weights.values())
+        if total_weight > 0:
+            model_weights = {k: v/total_weight for k, v in model_weights.items()}
+        
+        # Store the selected models and weights in session state
+        st.session_state.selected_models = {k: models[k] for k in selected_models if k in models}
+        st.session_state.model_weights = model_weights
+    else:
+        st.sidebar.warning("Please select at least one model for ensemble prediction.")
+        # Fallback to single model
+        st.session_state.selected_models = None
+        st.session_state.model_weights = None
+else:
+    # Use single model
+    st.session_state.selected_models = None
+    st.session_state.model_weights = None
 
 if page == "Home":
     st.header("Welcome to CVD Risk Predictor")
