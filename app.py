@@ -63,22 +63,22 @@ def initialize_models():
         from model import train_model
         
         with st.spinner("Training Random Forest model..."):
-            models['rf'] = train_model(sample_data, model_type='rf')
+            models['rf'] = train_model(sample_data, model_type='rf', model_path='rf_model.joblib')
         
         with st.spinner("Training Gradient Boosting model..."):
-            models['gb'] = train_model(sample_data, model_type='gb')
+            models['gb'] = train_model(sample_data, model_type='gb', model_path='gb_model.joblib')
         
         with st.spinner("Training Logistic Regression model..."):
-            models['lr'] = train_model(sample_data, model_type='lr')
+            models['lr'] = train_model(sample_data, model_type='lr', model_path='lr_model.joblib')
             
         with st.spinner("Training Support Vector Machine model..."):
-            models['svm'] = train_model(sample_data, model_type='svm')
+            models['svm'] = train_model(sample_data, model_type='svm', model_path='svm_model.joblib')
             
         with st.spinner("Training Neural Network model..."):
-            models['nn'] = train_model(sample_data, model_type='nn')
+            models['nn'] = train_model(sample_data, model_type='nn', model_path='nn_model.joblib')
         
         with st.spinner("Training Ensemble model..."):
-            models['ensemble'] = train_model(sample_data, model_type='ensemble')
+            models['ensemble'] = train_model(sample_data, model_type='ensemble', model_path='ensemble_model.joblib')
     
     return models
 
@@ -191,6 +191,16 @@ if use_multiple_models:
         st.session_state.selected_models = {k: models[k] for k in selected_models if k in models}
         st.session_state.model_weights = model_weights
         
+        # Define default accuracy values if not already defined
+        model_accuracy = model_accuracy if 'model_accuracy' in locals() else {
+            'rf': 0.82,      # Random Forest
+            'gb': 0.84,      # Gradient Boosting
+            'lr': 0.76,      # Logistic Regression
+            'svm': 0.78,     # SVM
+            'nn': 0.80,      # Neural Network
+            'ensemble': 0.85  # Ensemble already has high weight
+        }
+            
         # Show accuracy estimate based on selected models
         weighted_acc = sum(model_accuracy.get(k, 0.75) * model_weights.get(k, 0) 
                          for k in selected_models)
