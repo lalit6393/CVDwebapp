@@ -41,7 +41,7 @@ available_models = {
 }
 
 # Initialize model and data
-@st.cache_resource(experimental_allow_widgets=True, ttl=1)
+@st.cache_resource(ttl=10)
 def initialize_models():
     models = {}
     sample_data = None
