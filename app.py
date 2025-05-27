@@ -686,4 +686,4 @@ elif page == "About CVD":
 
 # Footer
 st.markdown("---")
-st.caption("© 2023 CVD Risk Predictor | This application is for educational purposes only")
+st.caption("© 2024 CVD Risk Predictor | This application is for educational purposes only")
